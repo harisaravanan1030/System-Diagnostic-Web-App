@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - SysDiag Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dashboard-body">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <i class="fas fa-microchip"></i>
+            <span>SysDiag Pro Admin</span>
+        </div>
+        <ul class="sidebar-nav">
+            <li class="active"><a href="#overview" onclick="showAdminSection('overview')"><i class="fas fa-chart-pie"></i> Overview</a></li>
+            <li><a href="#users" onclick="showAdminSection('users'); loadUsers();"><i class="fas fa-users"></i> Users</a></li>
+            <li><a href="#reports" onclick="showAdminSection('reports'); loadAllReports();"><i class="fas fa-file-alt"></i> All Reports</a></li>
+            <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content fade-in">
+        <header class="topbar">
+            <div class="welcome-msg">
+                Welcome, <strong>Admin ({{ user_name }})</strong>
+            </div>
+            <div class="user-profile">
+                <div class="avatar"><i class="fas fa-user-shield"></i></div>
+                <span>{{ user_name }}</span>
+            </div>
+        </header>
+
+        <div id="content-area">
+            
+            <!-- Overview Section -->
+            <section id="section-overview" class="section-active">
+                <div class="dashboard-header">
+                    <h2>Platform Overview</h2>
+                </div>
+                
+                <div class="metrics-grid">
+                    <div class="metric-card card-anim" style="animation-delay: 0.1s;">
+                        <div class="metric-icon" style="color: var(--primary);"><i class="fas fa-users"></i></div>
+                        <div class="metric-info">
+                            <h3>Total Users</h3>
+                            <div class="metric-value">{{ stats.total_users }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-card card-anim" style="animation-delay: 0.2s;">
+                        <div class="metric-icon" style="color: var(--accent);"><i class="fas fa-search"></i></div>
+                        <div class="metric-info">
+                            <h3>Total Scans</h3>
+                            <div class="metric-value">{{ stats.total_scans }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-card card-anim" style="animation-delay: 0.3s;">
+                        <div class="metric-icon" style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="metric-info">
+                            <h3>Issues Found</h3>
+                            <div class="metric-value">{{ stats.total_issues }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-card card-anim" style="animation-delay: 0.4s;">
+                        <div class="metric-icon" style="color: var(--success);"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="metric-info">
+                            <h3>Speed Tests</h3>
+                            <div class="metric-value">{{ stats.total_speed_tests }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card card-anim" style="animation-delay: 0.5s;">
+                        <h3>Scans per Day (Last 7 Days)</h3>
+                        <canvas id="adminBarChart"></canvas>
+                    </div>
+                    <div class="chart-card card-anim" style="animation-delay: 0.6s;">
+                        <h3>Average Security Score</h3>
+                        <canvas id="adminLineChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-card card-anim" style="animation-delay: 0.7s;">
+                        <h3>Most Common Issues</h3>
+                        <ul class="sys-info-list">
+                            {% for issue, count in stats.common_issues %}
+                            <li><span>{{ issue }}</span> <span class="badge text-danger">{{ count }}</span></li>
+                            {% endfor %}
+                            {% if not stats.common_issues %}
+                            <li>No issues recorded yet.</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="info-card card-anim" style="animation-delay: 0.8s;">
+                        <h3>Recent Activity</h3>
+                        <ul class="sys-info-list">
+                            {% for act in stats.recent_activity %}
+                            <li>
+                                <span><i class="fas {% if act.type == 'Scan' %}fa-search{% else %}fa-tachometer-alt{% endif %}"></i> {{ act.type }} by {{ act.user_name }}</span>
+                                <span style="font-size: 12px; color: var(--text-muted);">{{ act.date }} {{ act.time }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="section-users" class="section-hidden">
+                <div class="dashboard-header">
+                    <h2>User Management</h2>
+                    <input type="text" id="userSearch" placeholder="Search users..." class="search-input" onkeyup="filterTable('usersTable', 'userSearch')">
+                </div>
+                <div class="history-card">
+                    <div class="table-responsive">
+                        <table class="data-table" id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Registered</th>
+                                    <th>Total Scans</th>
+                                    <th>Last Scan</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersBody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports Section -->
+            <section id="section-reports" class="section-hidden">
+                <div class="dashboard-header">
+                    <h2>All Platform Reports</h2>
+                    <input type="text" id="reportSearch" placeholder="Search reports..." class="search-input" onkeyup="filterTable('reportsTable', 'reportSearch')">
+                </div>
+                <div class="history-card">
+                    <div class="table-responsive">
+                        <table class="data-table" id="reportsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User</th>
+                                    <th>Date</th>
+                                    <th>CPU%</th>
+                                    <th>RAM%</th>
+                                    <th>Disk%</th>
+                                    <th>Sec Score</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsBody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <script>
+        const adminStats = {{ stats | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

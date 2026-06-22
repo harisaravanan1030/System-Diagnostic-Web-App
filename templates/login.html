@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SysDiag Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-body light-theme">
+    <div class="animated-bg-light"></div>
+    <div class="auth-container">
+        <div class="auth-header">
+            <i class="fas fa-microchip pulse-logo" style="color: var(--primary);"></i>
+            <h2 style="color: var(--text-main);">SysDiag Pro</h2>
+            <p style="color: var(--text-muted);">Welcome back! Please login to your account.</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('login') }}" method="POST" id="loginForm">
+            <div class="input-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" name="email" placeholder="Email Address" required>
+            </div>
+            <div class="input-group">
+                <i class="fas fa-lock"></i>
+                <input type="password" name="password" id="password" placeholder="Password" required>
+                <i class="fas fa-eye toggle-password" onclick="togglePassword()"></i>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">
+                <span>Login</span>
+                <i class="fas fa-spinner fa-spin d-none" id="loginSpinner"></i>
+            </button>
+        </form>
+        <div class="auth-footer">
+            <p style="color: var(--text-muted);">Don't have an account? <a href="{{ url_for('register') }}" style="color: var(--primary); font-weight:600;">Register here</a></p>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const pwInput = document.getElementById('password');
+            const icon = document.querySelector('.toggle-password');
+            if (pwInput.type === 'password') {
+                pwInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                pwInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            document.getElementById('loginSpinner').classList.remove('d-none');
+            document.querySelector('.btn-primary span').innerText = 'Logging in...';
+        });
+    </script>
+</body>
+</html>
