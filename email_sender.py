@@ -96,3 +96,99 @@ def send_report_email(user_name, user_email, report_data):
     except Exception as e:
         print(f"Failed to send email: {e}")
         return False
+
+def send_report_email_from_db(user_name, user_email, report_row):
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        print("Email credentials not configured. Skipping email send.")
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg['Subject'] = f"SysDiag Pro Report — {report_row['scan_date']}"
+    msg['From'] = f"SysDiag Pro <{SENDER_EMAIL}>"
+    msg['To'] = user_email
+
+    import json
+    issues = []
+    fixes = []
+    try:
+        issues = json.loads(report_row['issues_found'])
+        fixes = json.loads(report_row['fixes_suggested'])
+    except:
+        pass
+
+    issues_html = ""
+    if issues:
+        issues_html = "<h3 style='color: #EC4899;'>Issues Found:</h3><ul>"
+        for i, issue in enumerate(issues):
+            fix = fixes[i] if i < len(fixes) else "N/A"
+            issues_html += f"<li><strong style='color: #ff4444;'>{issue}</strong> - <span style='color: #16A34A;'>{fix}</span></li>"
+        issues_html += "</ul>"
+    else:
+        issues_html = "<h3 style='color: #16A34A;'>No issues found. Your system is running smoothly!</h3>"
+
+    sec_score = report_row['security_score']
+    sec_color = "#ff4444"
+    if sec_score > 40: sec_color = "#ffd700"
+    if sec_score > 70: sec_color = "#7C3AED"
+    if sec_score > 90: sec_color = "#16A34A"
+
+    html_content = f"""
+    <html>
+    <head>
+    <style>
+        body {{ font-family: 'Inter', Arial, sans-serif; background-color: #F9F7FF; color: #1F2937; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: #FFFFFF; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+        .header {{ text-align: center; border-bottom: 2px solid #7C3AED; padding-bottom: 10px; margin-bottom: 20px; }}
+        .header h1 {{ color: #7C3AED; }}
+        .metric-table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
+        .metric-table th, .metric-table td {{ border: 1px solid #E5E7EB; padding: 10px; text-align: left; }}
+        .metric-table th {{ background-color: #F3F4F6; color: #4B5563; }}
+        .sec-score {{ font-size: 24px; font-weight: bold; color: {sec_color}; }}
+        .footer {{ text-align: center; margin-top: 30px; font-size: 12px; color: #9CA3AF; }}
+        .btn {{ background-color: #EC4899; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;}}
+    </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>SysDiag Pro Report</h1>
+            </div>
+            <p>Hello <strong>{user_name}</strong>,</p>
+            <p>Your system scan was completed on {report_row['scan_date']} at {report_row['scan_time']}. Here is your report summary:</p>
+            
+            <table class="metric-table">
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Security Score</td><td class="sec-score">{sec_score}/100</td></tr>
+                <tr><td>CPU Usage</td><td>{report_row['cpu_usage']}%</td></tr>
+                <tr><td>RAM Usage</td><td>{report_row['ram_usage']}%</td></tr>
+                <tr><td>Disk Usage</td><td>{report_row['disk_usage']}%</td></tr>
+                <tr><td>Network Status</td><td>{report_row['network_status']}</td></tr>
+                <tr><td>OS</td><td>{report_row['os_name']}</td></tr>
+            </table>
+
+            {issues_html}
+
+            <div style="text-align: center;">
+                <a href="http://127.0.0.1:5000/dashboard" class="btn">View Full Report Online</a>
+            </div>
+
+            <div class="footer">
+                <p>SysDiag Pro &copy; 2026. Automated System Diagnostic tool.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    msg.attach(MIMEText(html_content, 'html'))
+
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, user_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False

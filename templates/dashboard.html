@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="dashboard-body">
     <!-- Sidebar -->
@@ -21,7 +22,11 @@
         <!-- Redesigned Profile Section -->
         <div class="sidebar-profile">
             <div class="profile-avatar">
-                <span>{{ user.name[0] | upper }}</span>
+                {% if user.profile_pic %}
+                    <img src="{{ url_for('static', filename='uploads/' + user.profile_pic) }}" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                {% else %}
+                    <span>{{ user.name[0] | upper }}</span>
+                {% endif %}
             </div>
             <div class="profile-name">{{ user.name }}</div>
             <div class="profile-email">{{ user.email }}</div>
@@ -30,7 +35,7 @@
                 <div class="stat-pill">{{ total_scans }} Scans</div>
                 <div class="stat-pill">{{ total_issues }} Issues</div>
             </div>
-            <button class="btn-edit-profile">Edit Profile</button>
+            <button class="btn-edit-profile" onclick="openProfileModal()">Edit Profile</button>
         </div>
 
         <ul class="sidebar-nav">
@@ -38,7 +43,7 @@
             <li><a href="#" onclick="promptScan()"><i class="fas fa-search"></i> Run Scan</a></li>
             <li><a href="#speedtest" onclick="showSection('speedtest')"><i class="fas fa-tachometer-alt"></i> Speed Test</a></li>
             <li><a href="#security" onclick="showSection('security')"><i class="fas fa-shield-alt"></i> Security Score</a></li>
-            <li><a href="#history" onclick="showSection('history')"><i class="fas fa-history"></i> History</a></li>
+            <li><a href="#history" onclick="showSection('history')"><i class="fas fa-history"></i> History & Reports</a></li>
             <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
     </nav>
@@ -65,60 +70,108 @@
                 </div>
                 
                 {% if last_scan %}
-                <div class="metrics-grid">
-                    <div class="metric-card card-anim" style="animation-delay: 0.1s;">
-                        <div class="metric-icon" style="color: #7C3AED; background: rgba(124,58,237,0.1);"><i class="fas fa-microchip"></i></div>
-                        <div class="metric-info">
-                            <h3>CPU Usage</h3>
-                            <div class="metric-value cpu-color" id="metric-cpu">{{ last_scan.cpu_usage }}%</div>
+                <!-- System Information Cards -->
+                <div class="device-info-section card-anim" style="animation-delay: 0.1s; margin-bottom: 30px;">
+                    <h2 class="device-info-title" style="margin-bottom: 20px;"><i class="fas fa-laptop-code text-primary"></i> System Information</h2>
+                    <div class="sys-info-grid">
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-desktop"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">Computer Name</span>
+                                <span class="sys-val">{{ last_scan.device_name }}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="metric-card card-anim" style="animation-delay: 0.2s;">
-                        <div class="metric-icon" style="color: #7c3aed; background: rgba(124,58,237,0.1);"><i class="fas fa-memory"></i></div>
-                        <div class="metric-info">
-                            <h3>RAM Usage</h3>
-                            <div class="metric-value ram-color" id="metric-ram">{{ last_scan.ram_usage }}%</div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fab fa-windows"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">Operating System</span>
+                                <span class="sys-val">{{ last_scan.os_name }}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="metric-card card-anim" style="animation-delay: 0.3s;">
-                        <div class="metric-icon" style="color: #ff6b35; background: rgba(255,107,53,0.1);"><i class="fas fa-hdd"></i></div>
-                        <div class="metric-info">
-                            <h3>Disk Usage</h3>
-                            <div class="metric-value disk-color" id="metric-disk">{{ last_scan.disk_usage }}%</div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-microchip"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">Processor</span>
+                                <span class="sys-val">{{ last_scan.processor_name }} ({{ last_scan.cpu_cores }} Cores)</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="metric-card card-anim" style="animation-delay: 0.4s;">
-                        <div class="metric-icon" style="color: #00ff88; background: rgba(0,255,136,0.1);"><i class="fas fa-network-wired"></i></div>
-                        <div class="metric-info">
-                            <h3>Network</h3>
-                            <div class="metric-value {% if last_scan.network_status == 'Connected' %}text-success{% else %}text-danger{% endif %}" id="metric-network">{{ last_scan.network_status }}</div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-memory"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">RAM Installed</span>
+                                <span class="sys-val">{{ (last_scan.ram_total / (1024**3)) | round(1) }} GB {{ last_scan.ram_type }}</span>
+                            </div>
+                        </div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-hdd"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">Storage Capacity</span>
+                                <span class="sys-val">{{ (last_scan.disk_total / (1024**3)) | round(1) }} GB</span>
+                            </div>
+                        </div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-gamepad"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">GPU</span>
+                                <span class="sys-val">{{ last_scan.gpu_name }}</span>
+                            </div>
+                        </div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-clock"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">Uptime</span>
+                                <span class="sys-val">{{ last_scan.uptime }}</span>
+                            </div>
+                        </div>
+                        <div class="sys-card">
+                            <div class="sys-icon"><i class="fas fa-power-off"></i></div>
+                            <div class="sys-text">
+                                <span class="sys-label">Boot Time</span>
+                                <span class="sys-val">{{ last_scan.last_boot_time }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="charts-grid-3">
-                    <div class="chart-card card-anim" style="animation-delay: 0.5s;">
+                <!-- Resource Monitoring (Modern Progress Bars instead of Donuts) -->
+                <div class="metrics-grid">
+                    <div class="resource-card card-anim" style="animation-delay: 0.2s;">
                         <h3>CPU Usage</h3>
-                        <canvas id="cpuDonut"></canvas>
+                        <div class="modern-progress-bg">
+                            <div class="modern-progress-fill" style="width: {{ last_scan.cpu_usage }}%; background: var(--primary);"></div>
+                        </div>
+                        <div class="resource-val">{{ last_scan.cpu_usage }}%</div>
                     </div>
-                    <div class="chart-card card-anim" style="animation-delay: 0.6s;">
+                    <div class="resource-card card-anim" style="animation-delay: 0.3s;">
                         <h3>RAM Usage</h3>
-                        <canvas id="ramDonut"></canvas>
+                        <div class="modern-progress-bg">
+                            <div class="modern-progress-fill" style="width: {{ last_scan.ram_usage }}%; background: var(--accent);"></div>
+                        </div>
+                        <div class="resource-val">{{ last_scan.ram_usage }}%</div>
                     </div>
-                    <div class="chart-card card-anim" style="animation-delay: 0.7s;">
+                    <div class="resource-card card-anim" style="animation-delay: 0.4s;">
                         <h3>Disk Usage</h3>
-                        <canvas id="diskDonut"></canvas>
+                        <div class="modern-progress-bg">
+                            <div class="modern-progress-fill" style="width: {{ last_scan.disk_usage }}%; background: var(--secondary);"></div>
+                        </div>
+                        <div class="resource-val">{{ last_scan.disk_usage }}%</div>
+                    </div>
+                    <div class="resource-card card-anim" style="animation-delay: 0.5s;">
+                        <h3>Network</h3>
+                        <div class="modern-progress-bg">
+                            <div class="modern-progress-fill" style="width: {% if last_scan.network_status == 'Connected' %}100%{% else %}0%{% endif %}; background: var(--success);"></div>
+                        </div>
+                        <div class="resource-val {% if last_scan.network_status == 'Connected' %}text-success{% else %}text-danger{% endif %}">{{ last_scan.network_status }}</div>
                     </div>
                 </div>
 
                 <div class="charts-grid">
-                    <div class="chart-card card-anim" style="animation-delay: 0.8s;">
+                    <div class="chart-card card-anim" style="animation-delay: 0.6s;">
                         <h3>History (Last 10 Scans)</h3>
                         <canvas id="historyBarChart"></canvas>
                     </div>
                     
-                    <!-- Quick Fix Recommendations replaced Top 5 Processes -->
-                    <div class="fixes-card card-anim" style="animation-delay: 0.9s;">
+                    <div class="fixes-card card-anim" style="animation-delay: 0.7s;">
                         <h3><i class="fas fa-wrench" style="color:var(--primary);"></i> Quick Fix Recommendations</h3>
                         <div id="quick-fixes-list" class="quick-fixes-container">
                             <!-- Populated by JS -->
@@ -126,28 +179,6 @@
                     </div>
                 </div>
 
-                <div class="info-grid">
-                    <div class="info-card card-anim" style="animation-delay: 1.0s;">
-                        <h3><i class="fas fa-exclamation-triangle text-danger"></i> Detected Issues</h3>
-                        <div id="issues-list"></div>
-                    </div>
-                    <div class="info-card card-anim" style="animation-delay: 1.1s;">
-                        <h3><i class="fas fa-info-circle" style="color:var(--primary);"></i> System Info</h3>
-                        <ul class="sys-info-list" id="sys-info-list">
-                            <li><strong>OS:</strong> {{ last_scan.os_name }}</li>
-                            <li><strong>Uptime:</strong> {{ last_scan.uptime }}</li>
-                            <li><strong>IP Address:</strong> {{ last_scan.ip_address }}</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Device Information Section -->
-                <div class="device-info-section card-anim" style="animation-delay: 1.2s;">
-                    <h2 class="device-info-title"><i class="fas fa-server"></i> Device Information</h2>
-                    <div id="device-info-container" class="device-info-grid">
-                        <!-- Populated by JavaScript -->
-                    </div>
-                </div>
                 {% else %}
                 <div class="no-data-card">
                     <i class="fas fa-chart-bar" style="font-size: 3rem; color: var(--secondary); margin-bottom: 20px;"></i>
@@ -160,16 +191,17 @@
             <!-- Security Section -->
             <section id="section-security" class="section-hidden">
                 <div class="dashboard-header">
-                    <h2>Security Score</h2>
+                    <h2>Advanced Security Score</h2>
                 </div>
                 {% if last_scan %}
                 <div class="security-container card-anim">
                     <div style="flex: 1; text-align: center;">
                         <h1 style="font-size: 4rem; color: var(--primary);" id="secGaugeText">0/100</h1>
-                        <h3 id="secStatusText" style="margin-top: 10px; margin-bottom: 30px;">Status</h3>
+                        <h3 id="secStatusText" style="margin-top: 10px; margin-bottom: 10px;">Status</h3>
+                        <p id="secSuggestionsText" style="color: var(--text-muted); margin-bottom: 30px; font-size: 14px; max-width: 400px; margin-left: auto; margin-right: auto;"></p>
                         
                         <!-- Security Score Horizontal Bar Chart -->
-                        <div style="height: 300px; width: 100%;">
+                        <div style="height: 350px; width: 100%;">
                             <canvas id="secBarChart"></canvas>
                         </div>
                     </div>
@@ -182,48 +214,40 @@
             <!-- Speed Test Section -->
             <section id="section-speedtest" class="section-hidden">
                 <div class="dashboard-header">
-                    <h2>Internet Speed Test</h2>
-                    <button class="btn btn-primary" onclick="runSpeedTest()"><i class="fas fa-play"></i> Start Test</button>
+                    <h2>Internet Speed Test Dashboard</h2>
+                    <button id="btnRunSpeed" class="btn btn-primary" onclick="runSpeedTest()">
+                        <i class="fas fa-play"></i> <span id="btnRunSpeedText">Run Speed Test</span>
+                    </button>
                 </div>
                 
-                <div class="speed-gauges d-none" id="speedGauges">
-                    <div class="speed-gauge-card card-anim">
-                        <h3>Download</h3>
-                        <div class="speed-value text-success" id="downloadVal">-- Mbps</div>
-                    </div>
-                    <div class="speed-gauge-card card-anim">
-                        <h3>Upload</h3>
-                        <div class="speed-value text-info" id="uploadVal">-- Mbps</div>
-                    </div>
-                    <div class="speed-gauge-card card-anim">
-                        <h3>Ping</h3>
-                        <div class="speed-value" id="pingVal">-- ms</div>
-                    </div>
+                <div id="speedTestGrid" class="speed-cards-grid d-none card-anim">
+                    <!-- Cards populated by JS -->
                 </div>
                 
                 <div id="speedTestLoader" class="d-none" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-tachometer-alt fa-spin" style="font-size: 40px; color: var(--primary);"></i>
-                    <h3 style="margin-top: 20px;">Testing connection... This may take up to a minute.</h3>
+                    <i class="fas fa-circle-notch fa-spin" style="font-size: 50px; color: var(--primary);"></i>
+                    <h3 style="margin-top: 20px;">Running Speed Test...</h3>
+                    <p class="text-muted">Testing Download, Upload, and Jitter to nearest server. This takes roughly 30 seconds.</p>
                 </div>
-
-                <div class="chart-card mt-30">
-                    <h3>Speed Test History</h3>
-                    <canvas id="speedTestBarChart"></canvas>
+                
+                <div class="no-data-card" id="speedTestEmptyState">
+                    <i class="fas fa-wifi" style="font-size: 3rem; color: var(--secondary); margin-bottom: 20px;"></i>
+                    <h3>No speed test run yet.</h3>
+                    <p>Click "Run Speed Test" above to analyze your connection.</p>
                 </div>
             </section>
 
             <!-- History Section -->
             <section id="section-history" class="section-hidden">
                 <div class="dashboard-header">
-                    <h2>Scan History</h2>
+                    <h2>Diagnostic Reports</h2>
                 </div>
                 <div class="history-card">
                     <div class="table-responsive">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Time</th>
+                                    <th>Date & Time</th>
                                     <th>CPU</th>
                                     <th>RAM</th>
                                     <th>Disk</th>
@@ -233,9 +257,8 @@
                             </thead>
                             <tbody>
                                 {% for report in reports %}
-                                <tr>
-                                    <td>{{ report.scan_date }}</td>
-                                    <td>{{ report.scan_time }}</td>
+                                <tr id="report-row-{{ report.id }}">
+                                    <td>{{ report.scan_date }} <br> <small class="text-muted">{{ report.scan_time }}</small></td>
                                     <td><span class="badge cpu-color-bg">{{ report.cpu_usage }}%</span></td>
                                     <td><span class="badge ram-color-bg">{{ report.ram_usage }}%</span></td>
                                     <td><span class="badge disk-color-bg">{{ report.disk_usage }}%</span></td>
@@ -245,7 +268,8 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <button class="btn-icon" onclick="viewOldReport({{ report.id }})" title="View"><i class="fas fa-eye" style="color:var(--primary);"></i></button>
+                                        <button class="btn-icon" onclick="downloadReportPDF({{ report.id }})" title="Download PDF"><i class="fas fa-file-pdf" style="color:var(--primary);"></i></button>
+                                        <button class="btn-icon" onclick="openEmailModal({{ report.id }})" title="Email Report"><i class="fas fa-envelope" style="color:var(--accent);"></i></button>
                                         <button class="btn-icon" onclick="deleteReport({{ report.id }})" title="Delete"><i class="fas fa-trash text-danger"></i></button>
                                     </td>
                                 </tr>
@@ -271,6 +295,59 @@
         </div>
     </div>
 
+    <!-- Edit Profile Modal -->
+    <div id="profileModal" class="modal-overlay d-none">
+        <div class="modal-content scale-in" style="max-width: 500px;">
+            <h3><i class="fas fa-user-edit text-primary"></i> Edit Profile</h3>
+            <form id="profileForm" onsubmit="submitProfile(event)">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="profName" name="name" value="{{ user.name }}" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="profEmail" name="email" value="{{ user.email }}" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-phone"></i>
+                    <input type="text" id="profPhone" name="phone" placeholder="Phone Number" value="{{ user.phone or '' }}">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="profPassword" name="password" placeholder="New Password (leave blank to keep current)">
+                </div>
+                <div class="input-group" style="text-align: left;">
+                    <label style="font-size: 13px; color: var(--text-muted); margin-bottom: 5px; display:block;">Profile Picture</label>
+                    <input type="file" id="profPic" name="profile_picture" accept="image/*" style="padding: 10px;">
+                </div>
+                
+                <div class="modal-actions mt-30">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('profileModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="btnSaveProfile">Save Changes</button>
+                </div>
+                <div id="profileError" class="text-danger mt-10 d-none" style="font-size: 13px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Email Modal -->
+    <div id="emailModal" class="modal-overlay d-none">
+        <div class="modal-content scale-in">
+            <h3><i class="fas fa-paper-plane text-accent"></i> Send Report</h3>
+            <p>Enter the email address to send this diagnostic report to:</p>
+            <input type="hidden" id="emailReportId">
+            <div class="input-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" id="recipientEmail" placeholder="recipient@example.com" required>
+            </div>
+            <div class="modal-actions mt-30">
+                <button class="btn btn-secondary" onclick="closeModal('emailModal')">Cancel</button>
+                <button class="btn btn-primary" id="btnSendEmail" onclick="sendEmailReport()">Send Email</button>
+            </div>
+            <div id="emailMsg" class="mt-10" style="font-size: 13px;"></div>
+        </div>
+    </div>
+
     <!-- Scanning Overlay -->
     <div id="scanningOverlay" class="scan-overlay d-none">
         <div class="scan-container">
@@ -287,11 +364,14 @@
             <div class="percentage" id="scan-percentage">0%</div>
         </div>
     </div>
+    
+    <!-- Hidden Div for PDF Generation -->
+    <div id="pdfContainer" class="d-none"></div>
 
     <script>
-        const lastScanRaw = {% if last_scan %}{{ last_scan | tojson }}{% else %}null{% endif %};
-        const allReports = {% if reports %}{{ reports | tojson }}{% else %}[]{% endif %};
-        const speedTests = {% if speed_tests %}{{ speed_tests | tojson }}{% else %}[]{% endif %};
+        const lastScanRaw = {% if last_scan %}{{ last_scan | tojson | safe }}{% else %}null{% endif %};
+        const allReports = {% if reports %}{{ reports | tojson | safe }}{% else %}[]{% endif %};
+        const speedTests = {% if speed_tests %}{{ speed_tests | tojson | safe }}{% else %}[]{% endif %};
     </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

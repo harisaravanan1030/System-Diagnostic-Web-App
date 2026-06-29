@@ -72,7 +72,7 @@ def init_db():
     ''')
     conn.commit()
 
-    _migrate_reports_table(conn)
+    _migrate_db(conn)
 
     # Create default admin account if not exists
     c.execute('SELECT * FROM users WHERE email = ?', ('admin@sysdiag.com',))
@@ -84,8 +84,9 @@ def init_db():
 
     conn.close()
 
-def _migrate_reports_table(conn):
+def _migrate_db(conn):
     c = conn.cursor()
+    # Migrate reports table
     new_columns = [
         ('processor_name', 'TEXT'),
         ('processor_gen', 'TEXT'),
@@ -115,6 +116,18 @@ def _migrate_reports_table(conn):
             c.execute(f'ALTER TABLE reports ADD COLUMN {col} {col_type}')
         except sqlite3.OperationalError:
             pass
+            
+    # Migrate users table
+    user_columns = [
+        ('phone', 'TEXT'),
+        ('profile_pic', 'TEXT')
+    ]
+    for col, col_type in user_columns:
+        try:
+            c.execute(f'ALTER TABLE users ADD COLUMN {col} {col_type}')
+        except sqlite3.OperationalError:
+            pass
+            
     conn.commit()
 
 def register_user(name, email, password, is_admin=False):
@@ -128,6 +141,25 @@ def register_user(name, email, password, is_admin=False):
         return True
     except sqlite3.IntegrityError:
         return False
+    finally:
+        conn.close()
+
+def update_user(user_id, name, email, phone, password_hash=None, profile_pic=None):
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        if password_hash and profile_pic:
+            c.execute('UPDATE users SET name=?, email=?, phone=?, password_hash=?, profile_pic=? WHERE id=?', (name, email, phone, password_hash, profile_pic, user_id))
+        elif password_hash:
+            c.execute('UPDATE users SET name=?, email=?, phone=?, password_hash=? WHERE id=?', (name, email, phone, password_hash, user_id))
+        elif profile_pic:
+            c.execute('UPDATE users SET name=?, email=?, phone=?, profile_pic=? WHERE id=?', (name, email, phone, profile_pic, user_id))
+        else:
+            c.execute('UPDATE users SET name=?, email=?, phone=? WHERE id=?', (name, email, phone, user_id))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False # duplicate email
     finally:
         conn.close()
 

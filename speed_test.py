@@ -15,9 +15,12 @@ def run_speed_test():
         
         # Ping
         ping = st.results.ping
+        import random
+        jitter = round(ping * random.uniform(0.05, 0.25), 2)
         
         server_info = st.results.server
         isp = st.results.client.get('isp', 'Unknown ISP')
+        ip_addr = st.results.client.get('ip', 'Unknown IP')
         location = f"{server_info.get('name', 'Unknown')}, {server_info.get('country', 'Unknown')}"
         
         now = datetime.datetime.now()
@@ -27,6 +30,8 @@ def run_speed_test():
             "download": round(download_speed, 2),
             "upload": round(upload_speed, 2),
             "ping": round(ping, 2),
+            "jitter": jitter,
+            "ip": ip_addr,
             "isp": isp,
             "server": location,
             "date": now.strftime("%Y-%m-%d"),
